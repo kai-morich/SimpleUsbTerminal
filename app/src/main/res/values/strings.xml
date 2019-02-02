@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Simple USB Terminal</string>
+    <string name="devices">USB Devices</string>
+</resources>
