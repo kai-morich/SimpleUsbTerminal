@@ -13,11 +13,14 @@ and devices implementing the USB CDC protocol like
 - Digispark using V-USB software USB
 - BBC micro:bit using ARM mbed DAPLink firmware
 
-## How to start
+## Features
 
-The app uses the [usb-serial-for-android](https://github.com/kai-morich/usb-serial-for-android) library, 
-which is unfortunately not available in jcenter or maven-central repositories, so you have to add it manually.
-Copy usbSerialForAndroid folder from usb-serial-for-android project into folder containing this README.md
+- permission handling on device connection
+- foreground service to buffer receive data while the app is rotating, in background, ...
+
+## Credits
+
+The app uses the [usb-serial-for-android](https://github.com/kai-morich/usb-serial-for-android) library.
 
 ## Motivation
 
