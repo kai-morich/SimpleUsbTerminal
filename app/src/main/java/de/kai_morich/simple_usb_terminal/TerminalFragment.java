@@ -34,8 +34,6 @@ import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
-import java.util.Date;
-
 public class TerminalFragment extends Fragment implements ServiceConnection, SerialListener {
 
     private enum Connected { False, Pending, True }
@@ -205,8 +203,10 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             status("connection failed: device not found");
             return;
         }
-        UsbSerialProber usbSerialProber = UsbSerialProber.getDefaultProber();
-        UsbSerialDriver driver = usbSerialProber.probeDevice(device);
+        UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
+        if(driver == null) {
+            driver = CustomProber.getCustomProber().probeDevice(device);
+        }
         if(driver == null) {
             status("connection failed: no driver for device");
             return;

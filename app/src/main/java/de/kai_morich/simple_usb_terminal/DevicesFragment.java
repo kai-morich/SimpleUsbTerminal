@@ -118,10 +118,14 @@ public class DevicesFragment extends ListFragment {
 
     void refresh() {
         UsbManager usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
-        UsbSerialProber usbSerialProber = UsbSerialProber.getDefaultProber();
+        UsbSerialProber usbDefaultProber = UsbSerialProber.getDefaultProber();
+        UsbSerialProber usbCustomProber = CustomProber.getCustomProber();
         listItems.clear();
         for(UsbDevice device : usbManager.getDeviceList().values()) {
-            UsbSerialDriver driver = usbSerialProber.probeDevice(device);
+            UsbSerialDriver driver = usbDefaultProber.probeDevice(device);
+            if(driver == null) {
+                driver = usbCustomProber.probeDevice(device);
+            }
             if(driver != null) {
                 for(int port = 0; port < driver.getPorts().size(); port++)
                     listItems.add(new ListItem(device, port, driver));
