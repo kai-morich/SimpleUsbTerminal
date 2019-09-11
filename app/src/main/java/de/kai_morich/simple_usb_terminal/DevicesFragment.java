@@ -40,11 +40,7 @@ public class DevicesFragment extends ListFragment {
 
     private ArrayList<ListItem> listItems = new ArrayList<>();
     private ArrayAdapter<ListItem> listAdapter;
-
     private int baudRate = 19200;
-
-    public DevicesFragment() {
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {

@@ -217,12 +217,10 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         }
         UsbSerialPort usbSerialPort = driver.getPorts().get(portNum);
         UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
-        if(usbConnection == null && permissionGranted == null) {
-            if (!usbManager.hasPermission(driver.getDevice())) {
-                PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(INTENT_ACTION_GRANT_USB), 0);
-                usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
-                return;
-            }
+        if(usbConnection == null && permissionGranted == null && !usbManager.hasPermission(driver.getDevice())) {
+            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(INTENT_ACTION_GRANT_USB), 0);
+            usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
+            return;
         }
         if(usbConnection == null) {
             if (!usbManager.hasPermission(driver.getDevice()))
