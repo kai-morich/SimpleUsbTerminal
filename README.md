@@ -22,7 +22,7 @@ and devices implementing the USB CDC protocol like
 
 ## Credits
 
-The app uses the [usb-serial-for-android](https://github.com/kai-morich/usb-serial-for-android) library.
+The app uses the [usb-serial-for-android](https://github.com/mik3y/usb-serial-for-android) library.
 
 ## Motivation
 
