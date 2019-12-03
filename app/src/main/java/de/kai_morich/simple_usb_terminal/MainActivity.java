@@ -1,5 +1,6 @@
 package de.kai_morich.simple_usb_terminal;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
@@ -30,4 +31,15 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         onBackPressed();
         return true;
     }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        if(intent.getAction().equals("android.hardware.usb.action.USB_DEVICE_ATTACHED")) {
+            TerminalFragment terminal = (TerminalFragment)getSupportFragmentManager().findFragmentByTag("terminal");
+            if (terminal != null)
+                terminal.status("USB device detected");
+        }
+        super.onNewIntent(intent);
+    }
+
 }

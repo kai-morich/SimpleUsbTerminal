@@ -11,9 +11,14 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme"
         tools:ignore="AllowBackup,GoogleAppIndexingWarning">
+            <!-- for this simple app launchMode=singleTask and singleTop have same effect.
+                 If you would start another activity in the app, e.g. Android Settings
+                 then you should use singleTask, else a new MainActivity would be started
+                 when the settings activity is currently shown -->
         <activity
             android:name=".MainActivity"
             android:label="@string/app_name"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="stateHidden|adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
