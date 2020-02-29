@@ -6,6 +6,9 @@ import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 /**
  * add devices here, that are not known to DefaultProber
+ *
+ * if the App should auto start for these devices, also
+ * add IDs to app/src/main/res/xml/usb_device_filter.xml
  */
 class CustomProber {
 
