@@ -13,10 +13,13 @@ import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+
+import android.os.Looper;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.method.ScrollingMovementMethod;
@@ -29,33 +32,40 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
+import java.io.IOException;
+
 public class TerminalFragment extends Fragment implements ServiceConnection, SerialListener {
 
     private enum Connected { False, Pending, True }
 
-    public static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
+    private static final int controlLineRefreshInterval = 200; // msec
 
     private int deviceId, portNum, baudRate;
     private String newline = "\r\n";
 
     private TextView receiveText;
+    private ToggleButton controlLineRts, controlLineCts, controlLineDtr, controlLineDsr, controlLineCd, controlLineRi;
 
+    private UsbSerialPort usbSerialPort;
     private SerialSocket socket;
     private SerialService service;
     private boolean initialStart = true;
     private Connected connected = Connected.False;
     private BroadcastReceiver broadcastReceiver;
+    private Handler mainLooper;
+    private Runnable controlLineRefreshRunnable;
 
     public TerminalFragment() {
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if(intent.getAction().equals(INTENT_ACTION_GRANT_USB)) {
+                if(intent.getAction().equals(Constants.INTENT_ACTION_GRANT_USB)) {
                     Boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
                     connect(granted);
                 }
@@ -102,7 +112,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
 
     @SuppressWarnings("deprecation") // onAttach(context) was added with API 23. onAttach(activity) works for all API versions
     @Override
-    public void onAttach(Activity activity) {
+    public void onAttach(@NonNull Activity activity) {
         super.onAttach(activity);
         getActivity().bindService(new Intent(getActivity(), SerialService.class), this, Context.BIND_AUTO_CREATE);
     }
@@ -116,16 +126,19 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     @Override
     public void onResume() {
         super.onResume();
-        getActivity().registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
+        getActivity().registerReceiver(broadcastReceiver, new IntentFilter(Constants.INTENT_ACTION_GRANT_USB));
         if(initialStart && service !=null) {
             initialStart = false;
             getActivity().runOnUiThread(this::connect);
         }
+        if(connected == Connected.True)
+            controlLineRefreshStart();
     }
 
     @Override
     public void onPause() {
         getActivity().unregisterReceiver(broadcastReceiver);
+        controlLineRefreshStop();
         super.onPause();
     }
 
@@ -155,11 +168,12 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         TextView sendText = view.findViewById(R.id.send_text);
         View sendBtn = view.findViewById(R.id.send_btn);
         sendBtn.setOnClickListener(v -> send(sendText.getText().toString()));
+        controlLineInit(view);
         return view;
     }
 
     @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+    public void onCreateOptionsMenu(@NonNull Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_terminal, menu);
     }
 
@@ -215,10 +229,10 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             status("connection failed: not enough ports at device");
             return;
         }
-        UsbSerialPort usbSerialPort = driver.getPorts().get(portNum);
+        usbSerialPort = driver.getPorts().get(portNum);
         UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
         if(usbConnection == null && permissionGranted == null && !usbManager.hasPermission(driver.getDevice())) {
-            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(INTENT_ACTION_GRANT_USB), 0);
+            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(Constants.INTENT_ACTION_GRANT_USB), 0);
             usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
             return;
         }
@@ -244,10 +258,12 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     }
 
     private void disconnect() {
+        controlLineRefreshStop();
         connected = Connected.False;
         service.disconnect();
         socket.disconnect();
         socket = null;
+        usbSerialPort = null;
     }
 
     private void send(String str) {
@@ -276,6 +292,58 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         receiveText.append(spn);
     }
 
+    private void controlLineInit(View view) {
+        controlLineRefreshRunnable = this::controlLineRefreshStart; // w/o explicit Runnable, a new lambda would be created on each postDelayed, which would not be found again by removeCallbacks
+        mainLooper = new Handler(Looper.getMainLooper());
+
+        controlLineRts = view.findViewById(R.id.controlLineRts);
+        controlLineCts = view.findViewById(R.id.controlLineCts);
+        controlLineDtr = view.findViewById(R.id.controlLineDtr);
+        controlLineDsr = view.findViewById(R.id.controlLineDsr);
+        controlLineRi  = view.findViewById(R.id.controlLineRi);
+        controlLineCd  = view.findViewById(R.id.controlLineCd);
+        controlLineRts.setOnClickListener(this::controlLineModify);
+        controlLineDtr.setOnClickListener(this::controlLineModify);
+    }
+
+    private void controlLineModify(View v) {
+        if(connected != Connected.True)
+            return;
+        try {
+            if(v.equals(controlLineRts))
+                usbSerialPort.setRTS(controlLineRts.isChecked());
+            if(v.equals(controlLineDtr))
+                usbSerialPort.setDTR(controlLineDtr.isChecked());
+        } catch (IOException ignored) {
+            //controlLineRefresh();
+        }
+    }
+
+    private boolean controlLineRefresh() {
+        String step = "";
+        try {
+            step = "RTS"; controlLineRts.setChecked(usbSerialPort.getRTS());
+            step = "CTS"; controlLineCts.setChecked(usbSerialPort.getCTS());
+            step = "DTR"; controlLineDtr.setChecked(usbSerialPort.getDTR());
+            step = "DSR"; controlLineDsr.setChecked(usbSerialPort.getDSR());
+            step = "RI";  controlLineRi.setChecked(usbSerialPort.getRI());
+            step = "CD";  controlLineCd.setChecked(usbSerialPort.getCD());
+        } catch (IOException e) {
+            status("get" + step + " failed: " + e.getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    private void controlLineRefreshStart() {
+        if(connected == Connected.True && controlLineRefresh())
+            mainLooper.postDelayed(controlLineRefreshRunnable, controlLineRefreshInterval);
+    }
+
+    private void controlLineRefreshStop() {
+        mainLooper.removeCallbacks(controlLineRefreshRunnable);
+    }
+
     /*
      * SerialListener
      */
@@ -283,6 +351,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     public void onSerialConnect() {
         status("connected");
         connected = Connected.True;
+        controlLineRefreshStart();
     }
 
     @Override
