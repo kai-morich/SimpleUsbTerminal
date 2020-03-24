@@ -44,13 +44,10 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
 
     private enum Connected { False, Pending, True }
 
-    private static final int controlLineRefreshInterval = 200; // msec
-
     private int deviceId, portNum, baudRate;
     private String newline = "\r\n";
 
     private TextView receiveText;
-    private ToggleButton controlLineRts, controlLineCts, controlLineDtr, controlLineDsr, controlLineCd, controlLineRi;
 
     private UsbSerialPort usbSerialPort;
     private SerialSocket socket;
@@ -58,8 +55,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     private boolean initialStart = true;
     private Connected connected = Connected.False;
     private BroadcastReceiver broadcastReceiver;
-    private Handler mainLooper;
-    private Runnable controlLineRefreshRunnable;
+    private ControlLines controlLines;
 
     public TerminalFragment() {
         broadcastReceiver = new BroadcastReceiver() {
@@ -127,18 +123,19 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     public void onResume() {
         super.onResume();
         getActivity().registerReceiver(broadcastReceiver, new IntentFilter(Constants.INTENT_ACTION_GRANT_USB));
-        if(initialStart && service !=null) {
+        if(initialStart && service != null) {
             initialStart = false;
             getActivity().runOnUiThread(this::connect);
         }
-        if(connected == Connected.True)
-            controlLineRefreshStart();
+        if(controlLines != null && connected == Connected.True)
+            controlLines.start();
     }
 
     @Override
     public void onPause() {
         getActivity().unregisterReceiver(broadcastReceiver);
-        controlLineRefreshStop();
+        if(controlLines != null)
+            controlLines.stop();
         super.onPause();
     }
 
@@ -168,7 +165,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         TextView sendText = view.findViewById(R.id.send_text);
         View sendBtn = view.findViewById(R.id.send_btn);
         sendBtn.setOnClickListener(v -> send(sendText.getText().toString()));
-        controlLineInit(view);
+        controlLines = new ControlLines(view);
         return view;
     }
 
@@ -258,8 +255,8 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     }
 
     private void disconnect() {
-        controlLineRefreshStop();
         connected = Connected.False;
+        controlLines.stop();
         service.disconnect();
         socket.disconnect();
         socket = null;
@@ -292,58 +289,6 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         receiveText.append(spn);
     }
 
-    private void controlLineInit(View view) {
-        controlLineRefreshRunnable = this::controlLineRefreshStart; // w/o explicit Runnable, a new lambda would be created on each postDelayed, which would not be found again by removeCallbacks
-        mainLooper = new Handler(Looper.getMainLooper());
-
-        controlLineRts = view.findViewById(R.id.controlLineRts);
-        controlLineCts = view.findViewById(R.id.controlLineCts);
-        controlLineDtr = view.findViewById(R.id.controlLineDtr);
-        controlLineDsr = view.findViewById(R.id.controlLineDsr);
-        controlLineRi  = view.findViewById(R.id.controlLineRi);
-        controlLineCd  = view.findViewById(R.id.controlLineCd);
-        controlLineRts.setOnClickListener(this::controlLineModify);
-        controlLineDtr.setOnClickListener(this::controlLineModify);
-    }
-
-    private void controlLineModify(View v) {
-        if(connected != Connected.True)
-            return;
-        try {
-            if(v.equals(controlLineRts))
-                usbSerialPort.setRTS(controlLineRts.isChecked());
-            if(v.equals(controlLineDtr))
-                usbSerialPort.setDTR(controlLineDtr.isChecked());
-        } catch (IOException ignored) {
-            //controlLineRefresh();
-        }
-    }
-
-    private boolean controlLineRefresh() {
-        String step = "";
-        try {
-            step = "RTS"; controlLineRts.setChecked(usbSerialPort.getRTS());
-            step = "CTS"; controlLineCts.setChecked(usbSerialPort.getCTS());
-            step = "DTR"; controlLineDtr.setChecked(usbSerialPort.getDTR());
-            step = "DSR"; controlLineDsr.setChecked(usbSerialPort.getDSR());
-            step = "RI";  controlLineRi.setChecked(usbSerialPort.getRI());
-            step = "CD";  controlLineCd.setChecked(usbSerialPort.getCD());
-        } catch (IOException e) {
-            status("get" + step + " failed: " + e.getMessage());
-            return false;
-        }
-        return true;
-    }
-
-    private void controlLineRefreshStart() {
-        if(connected == Connected.True && controlLineRefresh())
-            mainLooper.postDelayed(controlLineRefreshRunnable, controlLineRefreshInterval);
-    }
-
-    private void controlLineRefreshStop() {
-        mainLooper.removeCallbacks(controlLineRefreshRunnable);
-    }
-
     /*
      * SerialListener
      */
@@ -351,7 +296,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     public void onSerialConnect() {
         status("connected");
         connected = Connected.True;
-        controlLineRefreshStart();
+        controlLines.start();
     }
 
     @Override
@@ -369,6 +314,69 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     public void onSerialIoError(Exception e) {
         status("connection lost: " + e.getMessage());
         disconnect();
+    }
+
+    class ControlLines {
+        private static final int refreshInterval = 200; // msec
+
+        private Handler mainLooper;
+        private Runnable runnable;
+        private ToggleButton rtsBtn, ctsBtn, dtrBtn, dsrBtn, cdBtn, riBtn;
+
+        ControlLines(View view) {
+            mainLooper = new Handler(Looper.getMainLooper());
+            runnable = this::start; // w/o explicit Runnable, a new lambda would be created on each postDelayed, which would not be found again by removeCallbacks
+
+            rtsBtn = view.findViewById(R.id.controlLineRts);
+            ctsBtn = view.findViewById(R.id.controlLineCts);
+            dtrBtn = view.findViewById(R.id.controlLineDtr);
+            dsrBtn = view.findViewById(R.id.controlLineDsr);
+            cdBtn = view.findViewById(R.id.controlLineCd);
+            riBtn = view.findViewById(R.id.controlLineRi);
+            rtsBtn.setOnClickListener(this::toggle);
+            dtrBtn.setOnClickListener(this::toggle);
+        }
+
+        private void toggle(View v) {
+            ToggleButton btn = (ToggleButton) v;
+            if (connected != Connected.True) {
+                btn.setChecked(!btn.isChecked());
+                Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String ctrl = "";
+            try {
+                if (btn.equals(rtsBtn)) { ctrl = "RTS"; usbSerialPort.setRTS(btn.isChecked()); }
+                if (btn.equals(dtrBtn)) { ctrl = "DTR"; usbSerialPort.setDTR(btn.isChecked()); }
+            } catch (IOException e) {
+                status("set" + ctrl + " failed: " + e.getMessage());
+            }
+        }
+
+        private boolean refresh() {
+            String ctrl = "";
+            try {
+                ctrl = "RTS"; rtsBtn.setChecked(usbSerialPort.getRTS());
+                ctrl = "CTS"; ctsBtn.setChecked(usbSerialPort.getCTS());
+                ctrl = "DTR"; dtrBtn.setChecked(usbSerialPort.getDTR());
+                ctrl = "DSR"; dsrBtn.setChecked(usbSerialPort.getDSR());
+                ctrl = "CD";  cdBtn.setChecked(usbSerialPort.getCD());
+                ctrl = "RI";  riBtn.setChecked(usbSerialPort.getRI());
+            } catch (IOException e) {
+                status("get" + ctrl + " failed: " + e.getMessage() + " -> stopped control line refresh");
+                return false;
+            }
+            return true;
+        }
+
+        void start() {
+            if (connected == Connected.True && refresh())
+                mainLooper.postDelayed(runnable, refreshInterval);
+        }
+
+        void stop() {
+            mainLooper.removeCallbacks(runnable);
+        }
     }
 
 }
