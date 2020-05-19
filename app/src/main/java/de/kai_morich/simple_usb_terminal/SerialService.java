@@ -12,9 +12,11 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -42,9 +44,9 @@ public class SerialService extends Service implements SerialListener {
     private final IBinder binder;
     private final Queue<QueueItem> queue1, queue2;
 
+    private SerialSocket socket;
     private SerialListener listener;
     private boolean connected;
-    private String notificationMsg;
 
     /**
      * Lifecylce
@@ -72,16 +74,23 @@ public class SerialService extends Service implements SerialListener {
     /**
      * Api
      */
-    public void connect(SerialListener listener, String notificationMsg) {
-        this.listener = listener;
+    public void connect(SerialSocket socket) throws IOException {
+        socket.connect(this);
+        this.socket = socket;
         connected = true;
-        this.notificationMsg = notificationMsg;
     }
 
     public void disconnect() {
-        listener = null;
         connected = false;
-        notificationMsg = null;
+        cancelNotification();
+        if(socket != null) {
+            socket.disconnect();
+            socket = null;
+        }
+    }
+
+    public void write(byte[] data) throws IOException {
+        socket.write(data);
     }
 
     public void attach(SerialListener listener) {
@@ -90,10 +99,8 @@ public class SerialService extends Service implements SerialListener {
         cancelNotification();
         // use synchronized() to prevent new items in queue2
         // new items will not be added to queue1 because mainLooper.post and attach() run in main thread
-        if(connected) {
-            synchronized (this) {
-                this.listener = listener;
-            }
+        synchronized (this) {
+            this.listener = listener;
         }
         for(QueueItem item : queue1) {
             switch(item.type) {
@@ -143,7 +150,7 @@ public class SerialService extends Service implements SerialListener {
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(getResources().getColor(R.color.colorPrimary))
                 .setContentTitle(getResources().getString(R.string.app_name))
-                .setContentText(notificationMsg)
+                .setContentText(socket != null ? "Connected to "+socket.getName() : "Background Service")
                 .setContentIntent(restartPendingIntent)
                 .setOngoing(true)
                 .addAction(new NotificationCompat.Action(R.drawable.ic_clear_white_24dp, "Disconnect", disconnectPendingIntent));

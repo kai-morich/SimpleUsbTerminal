@@ -1,5 +1,6 @@
 package de.kai_morich.simple_usb_terminal;
 
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
+import java.security.InvalidParameterException;
 import java.util.concurrent.Executors;
 
 public class SerialSocket implements SerialInputOutputManager.Listener {
@@ -24,7 +26,12 @@ public class SerialSocket implements SerialInputOutputManager.Listener {
     private UsbSerialPort serialPort;
     private SerialInputOutputManager ioManager;
 
-    SerialSocket() {
+    SerialSocket(Context context, UsbDeviceConnection connection, UsbSerialPort serialPort) {
+        if(context instanceof Activity)
+            throw new InvalidParameterException("expected non UI context");
+        this.context = context;
+        this.connection = connection;
+        this.serialPort = serialPort;
         disconnectBroadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -35,16 +42,11 @@ public class SerialSocket implements SerialInputOutputManager.Listener {
         };
     }
 
-    void connect(Context context, SerialListener listener, UsbDeviceConnection connection, UsbSerialPort serialPort, int baudRate) throws IOException {
-        if(this.serialPort != null)
-            throw new IOException("already connected");
-        this.context = context;
+    String getName() { return serialPort.getDriver().getClass().getSimpleName().replace("SerialDriver",""); }
+
+    void connect(SerialListener listener) throws IOException {
         this.listener = listener;
-        this.connection = connection;
-        this.serialPort = serialPort;
         context.registerReceiver(disconnectBroadcastReceiver, new IntentFilter(Constants.INTENT_ACTION_DISCONNECT));
-        serialPort.open(connection);
-        serialPort.setParameters(baudRate, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
         serialPort.setDTR(true); // for arduino, ...
         serialPort.setRTS(true);
         ioManager = new SerialInputOutputManager(serialPort, this);

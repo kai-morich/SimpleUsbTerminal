@@ -50,7 +50,6 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     private TextView receiveText;
 
     private UsbSerialPort usbSerialPort;
-    private SerialSocket socket;
     private SerialService service;
     private boolean initialStart = true;
     private Connected connected = Connected.False;
@@ -142,6 +141,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     @Override
     public void onServiceConnected(ComponentName name, IBinder binder) {
         service = ((SerialService.SerialBinder) binder).getService();
+        service.attach(this);
         if(initialStart && isResumed()) {
             initialStart = false;
             getActivity().runOnUiThread(this::connect);
@@ -243,9 +243,10 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
 
         connected = Connected.Pending;
         try {
-            socket = new SerialSocket();
-            service.connect(this, "Connected");
-            socket.connect(getContext(), service, usbConnection, usbSerialPort, baudRate);
+            usbSerialPort.open(usbConnection);
+            usbSerialPort.setParameters(baudRate, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+            SerialSocket socket = new SerialSocket(getActivity().getApplicationContext(), usbConnection, usbSerialPort);
+            service.connect(socket);
             // usb connect is not asynchronous. connect-success and connect-error are returned immediately from socket.connect
             // for consistency to bluetooth/bluetooth-LE app use same SerialListener and SerialService classes
             onSerialConnect();
@@ -258,8 +259,6 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         connected = Connected.False;
         controlLines.stop();
         service.disconnect();
-        socket.disconnect();
-        socket = null;
         usbSerialPort = null;
     }
 
@@ -273,7 +272,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             receiveText.append(spn);
             byte[] data = (str + newline).getBytes();
-            socket.write(data);
+            service.write(data);
         } catch (Exception e) {
             onSerialIoError(e);
         }
