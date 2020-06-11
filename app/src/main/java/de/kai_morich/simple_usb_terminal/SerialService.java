@@ -81,7 +81,7 @@ public class SerialService extends Service implements SerialListener {
     }
 
     public void disconnect() {
-        connected = false;
+        connected = false; // ignore data,errors while disconnecting
         cancelNotification();
         if(socket != null) {
             socket.disconnect();
@@ -90,6 +90,8 @@ public class SerialService extends Service implements SerialListener {
     }
 
     public void write(byte[] data) throws IOException {
+        if(!connected)
+            throw new IOException("not connected");
         socket.write(data);
     }
 
