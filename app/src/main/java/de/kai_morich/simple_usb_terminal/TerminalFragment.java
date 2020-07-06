@@ -39,6 +39,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 import java.io.IOException;
+import java.util.EnumSet;
 
 public class TerminalFragment extends Fragment implements ServiceConnection, SerialListener {
 
@@ -353,24 +354,37 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         }
 
         private boolean refresh() {
-            String ctrl = "";
             try {
-                ctrl = "RTS"; rtsBtn.setChecked(usbSerialPort.getRTS());
-                ctrl = "CTS"; ctsBtn.setChecked(usbSerialPort.getCTS());
-                ctrl = "DTR"; dtrBtn.setChecked(usbSerialPort.getDTR());
-                ctrl = "DSR"; dsrBtn.setChecked(usbSerialPort.getDSR());
-                ctrl = "CD";  cdBtn.setChecked(usbSerialPort.getCD());
-                ctrl = "RI";  riBtn.setChecked(usbSerialPort.getRI());
+                EnumSet<UsbSerialPort.ControlLine> controlLines = usbSerialPort.getControlLines();
+                rtsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RTS));
+                ctsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CTS));
+                dtrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DTR));
+                dsrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DSR));
+                cdBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CD));
+                riBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RI));
             } catch (IOException e) {
-                status("get" + ctrl + " failed: " + e.getMessage() + " -> stopped control line refresh");
+                status("getControlLines() failed: " + e.getMessage() + " -> stopped control line refresh");
                 return false;
             }
             return true;
         }
 
         void start() {
-            if (connected == Connected.True && refresh())
-                mainLooper.postDelayed(runnable, refreshInterval);
+            if (connected == Connected.True) {
+                try {
+                    EnumSet<UsbSerialPort.ControlLine> controlLines = usbSerialPort.getSupportedControlLines();
+                    if (!controlLines.contains(UsbSerialPort.ControlLine.RTS)) rtsBtn.setVisibility(View.INVISIBLE);
+                    if (!controlLines.contains(UsbSerialPort.ControlLine.CTS)) ctsBtn.setVisibility(View.INVISIBLE);
+                    if (!controlLines.contains(UsbSerialPort.ControlLine.DTR)) dtrBtn.setVisibility(View.INVISIBLE);
+                    if (!controlLines.contains(UsbSerialPort.ControlLine.DSR)) dsrBtn.setVisibility(View.INVISIBLE);
+                    if (!controlLines.contains(UsbSerialPort.ControlLine.CD))   cdBtn.setVisibility(View.INVISIBLE);
+                    if (!controlLines.contains(UsbSerialPort.ControlLine.RI))   riBtn.setVisibility(View.INVISIBLE);
+                } catch (IOException e) {
+                    Toast.makeText(getActivity(), "getSupportedControlLines() failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+                if (refresh())
+                    mainLooper.postDelayed(runnable, refreshInterval);
+            }
         }
 
         void stop() {
