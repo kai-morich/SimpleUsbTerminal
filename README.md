@@ -8,7 +8,7 @@ It supports USB to serial converters based on
 - FTDI FT232, FT2232, ...
 - Prolific PL2303
 - Silabs CP2102, CP2105, ...
-- Qinheng CH340
+- Qinheng CH340, CH341
 
 and devices implementing the USB CDC protocol like
 - Arduino using ATmega32U4
