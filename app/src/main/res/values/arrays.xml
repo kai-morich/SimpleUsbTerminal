@@ -6,6 +6,7 @@
         <item>19200</item>
         <item>57600</item>
         <item>115200</item>
+        <item>3000000</item>
     </string-array>
     <string-array name="newline_names">
         <item>LF</item>
