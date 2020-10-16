@@ -15,11 +15,8 @@ import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-
 import android.os.Looper;
+import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.method.ScrollingMovementMethod;
@@ -30,9 +27,14 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
@@ -45,17 +47,22 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
 
     private enum Connected { False, Pending, True }
 
+    private final BroadcastReceiver broadcastReceiver;
     private int deviceId, portNum, baudRate;
-    private String newline = "\r\n";
-
-    private TextView receiveText;
-
     private UsbSerialPort usbSerialPort;
     private SerialService service;
-    private boolean initialStart = true;
-    private Connected connected = Connected.False;
-    private BroadcastReceiver broadcastReceiver;
+
+    private TextView receiveText;
+    private TextView sendText;
     private ControlLines controlLines;
+    private TextUtil.HexWatcher hexWatcher;
+
+    private Connected connected = Connected.False;
+    private boolean initialStart = true;
+    private boolean hexEnabled = false;
+    private boolean controlLinesEnabled = false;
+    private boolean pendingNewline = false;
+    private String newline = TextUtil.newline_crlf;
 
     public TerminalFragment() {
         broadcastReceiver = new BroadcastReceiver() {
@@ -127,7 +134,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             initialStart = false;
             getActivity().runOnUiThread(this::connect);
         }
-        if(controlLines != null && connected == Connected.True)
+        if(controlLinesEnabled && controlLines != null && connected == Connected.True)
             controlLines.start();
     }
 
@@ -163,7 +170,13 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         receiveText = view.findViewById(R.id.receive_text);                          // TextView performance decreases with number of spans
         receiveText.setTextColor(getResources().getColor(R.color.colorRecieveText)); // set as default color to reduce number of spans
         receiveText.setMovementMethod(ScrollingMovementMethod.getInstance());
-        TextView sendText = view.findViewById(R.id.send_text);
+
+        sendText = view.findViewById(R.id.send_text);
+        hexWatcher = new TextUtil.HexWatcher(sendText);
+        hexWatcher.enable(hexEnabled);
+        sendText.addTextChangedListener(hexWatcher);
+        sendText.setHint(hexEnabled ? "HEX mode" : "");
+
         View sendBtn = view.findViewById(R.id.send_btn);
         sendBtn.setOnClickListener(v -> send(sendText.getText().toString()));
         controlLines = new ControlLines(view);
@@ -173,6 +186,8 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     @Override
     public void onCreateOptionsMenu(@NonNull Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_terminal, menu);
+        menu.findItem(R.id.hex).setChecked(hexEnabled);
+        menu.findItem(R.id.controlLines).setChecked(controlLinesEnabled);
     }
 
     @Override
@@ -181,7 +196,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         if (id == R.id.clear) {
             receiveText.setText("");
             return true;
-        } else if (id ==R.id.newline) {
+        } else if (id == R.id.newline) {
             String[] newlineNames = getResources().getStringArray(R.array.newline_names);
             String[] newlineValues = getResources().getStringArray(R.array.newline_values);
             int pos = java.util.Arrays.asList(newlineValues).indexOf(newline);
@@ -192,6 +207,32 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
                 dialog.dismiss();
             });
             builder.create().show();
+            return true;
+        } else if (id == R.id.hex) {
+            hexEnabled = !hexEnabled;
+            sendText.setText("");
+            hexWatcher.enable(hexEnabled);
+            sendText.setHint(hexEnabled ? "HEX mode" : "");
+            item.setChecked(hexEnabled);
+            return true;
+        } else if (id == R.id.controlLines) {
+            controlLinesEnabled = !controlLinesEnabled;
+            item.setChecked(controlLinesEnabled);
+            if (controlLinesEnabled) {
+                controlLines.start();
+            } else {
+                controlLines.stop();
+            }
+            return true;
+        } else if (id == R.id.sendBreak) {
+            try {
+                usbSerialPort.setBreak(true);
+                Thread.sleep(100);
+                status("send BREAK");
+                usbSerialPort.setBreak(false);
+            } catch (Exception e) {
+                status("send BREAK failed: " + e.getMessage());
+            }
             return true;
         } else {
             return super.onOptionsItemSelected(item);
@@ -269,10 +310,21 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             return;
         }
         try {
-            SpannableStringBuilder spn = new SpannableStringBuilder(str+'\n');
+            String msg;
+            byte[] data;
+            if(hexEnabled) {
+                StringBuilder sb = new StringBuilder();
+                TextUtil.toHexString(sb, TextUtil.fromHexString(str));
+                TextUtil.toHexString(sb, newline.getBytes());
+                msg = sb.toString();
+                data = TextUtil.fromHexString(msg);
+            } else {
+                msg = str;
+                data = (str + newline).getBytes();
+            }
+            SpannableStringBuilder spn = new SpannableStringBuilder(msg+'\n');
             spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             receiveText.append(spn);
-            byte[] data = (str + newline).getBytes();
             service.write(data);
         } catch (Exception e) {
             onSerialIoError(e);
@@ -280,7 +332,23 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     }
 
     private void receive(byte[] data) {
-        receiveText.append(new String(data));
+        if(hexEnabled) {
+            receiveText.append(TextUtil.toHexString(data) + '\n');
+        } else {
+            String msg = new String(data);
+            if(newline.equals(TextUtil.newline_crlf) && msg.length() > 0) {
+                // don't show CR as ^M if directly before LF
+                msg = msg.replace(TextUtil.newline_crlf, TextUtil.newline_lf);
+                // special handling if CR and LF come in separate fragments
+                if (pendingNewline && msg.charAt(0) == '\n') {
+                    Editable edt = receiveText.getEditableText();
+                    if (edt != null && edt.length() > 1)
+                        edt.replace(edt.length() - 2, edt.length(), "");
+                }
+                pendingNewline = msg.charAt(msg.length() - 1) == '\r';
+            }
+            receiveText.append(TextUtil.toCaretString(msg, newline.length() != 0));
+        }
     }
 
     void status(String str) {
@@ -296,7 +364,8 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     public void onSerialConnect() {
         status("connected");
         connected = Connected.True;
-        controlLines.start();
+        if(controlLinesEnabled)
+            controlLines.start();
     }
 
     @Override
@@ -319,14 +388,16 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     class ControlLines {
         private static final int refreshInterval = 200; // msec
 
-        private Handler mainLooper;
-        private Runnable runnable;
-        private ToggleButton rtsBtn, ctsBtn, dtrBtn, dsrBtn, cdBtn, riBtn;
+        private final Handler mainLooper;
+        private final Runnable runnable;
+        private final LinearLayout frame;
+        private final ToggleButton rtsBtn, ctsBtn, dtrBtn, dsrBtn, cdBtn, riBtn;
 
         ControlLines(View view) {
             mainLooper = new Handler(Looper.getMainLooper());
             runnable = this::run; // w/o explicit Runnable, a new lambda would be created on each postDelayed, which would not be found again by removeCallbacks
 
+            frame = view.findViewById(R.id.controlLines);
             rtsBtn = view.findViewById(R.id.controlLineRts);
             ctsBtn = view.findViewById(R.id.controlLineCts);
             dtrBtn = view.findViewById(R.id.controlLineDtr);
@@ -371,6 +442,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         }
 
         void start() {
+            frame.setVisibility(View.VISIBLE);
             if (connected != Connected.True)
                 return;
             try {
@@ -388,6 +460,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         }
 
         void stop() {
+            frame.setVisibility(View.GONE);
             mainLooper.removeCallbacks(runnable);
             rtsBtn.setChecked(false);
             ctsBtn.setChecked(false);

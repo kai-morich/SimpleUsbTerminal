@@ -8,11 +8,13 @@
         <item>115200</item>
     </string-array>
     <string-array name="newline_names">
-        <item>LF</item>
         <item>CR+LF</item>
+        <item>LF</item>
+        <item>&lt;none&gt;</item>
     </string-array>
     <string-array name="newline_values">
-        <item>\u000a</item>
         <item>\u000d\u000a</item>
+        <item>\u000a</item>
+        <item></item>
     </string-array>
 </resources>
