@@ -6,6 +6,8 @@ import android.content.DialogInterface;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
+
+import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.ListFragment;
 import android.view.Menu;
@@ -26,7 +28,7 @@ import java.util.Locale;
 
 public class DevicesFragment extends ListFragment {
 
-    class ListItem {
+    static class ListItem {
         UsbDevice device;
         int port;
         UsbSerialDriver driver;
@@ -38,7 +40,7 @@ public class DevicesFragment extends ListFragment {
         }
     }
 
-    private ArrayList<ListItem> listItems = new ArrayList<>();
+    private final ArrayList<ListItem> listItems = new ArrayList<>();
     private ArrayAdapter<ListItem> listAdapter;
     private int baudRate = 19200;
 
@@ -47,8 +49,9 @@ public class DevicesFragment extends ListFragment {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         listAdapter = new ArrayAdapter<ListItem>(getActivity(), 0, listItems) {
+            @NonNull
             @Override
-            public View getView(int position, View view, ViewGroup parent) {
+            public View getView(int position, View view, @NonNull ViewGroup parent) {
                 ListItem item = listItems.get(position);
                 if (view == null)
                     view = getActivity().getLayoutInflater().inflate(R.layout.device_list_item, parent, false);
@@ -78,7 +81,7 @@ public class DevicesFragment extends ListFragment {
     }
 
     @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+    public void onCreateOptionsMenu(@NonNull Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.menu_devices, menu);
     }
 
@@ -101,7 +104,7 @@ public class DevicesFragment extends ListFragment {
             builder.setTitle("Baud rate");
             builder.setSingleChoiceItems(baudRates, pos, new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int item) {
-                    baudRate = Integer.valueOf(baudRates[item]);
+                    baudRate = Integer.parseInt(baudRates[item]);
                     dialog.dismiss();
                 }
             });

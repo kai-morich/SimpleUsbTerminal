@@ -32,7 +32,7 @@ public class SerialService extends Service implements SerialListener {
 
     private enum QueueType {Connect, ConnectError, Read, IoError}
 
-    private class QueueItem {
+    private static class QueueItem {
         QueueType type;
         byte[] data;
         Exception e;

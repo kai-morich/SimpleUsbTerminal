@@ -69,7 +69,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if(intent.getAction().equals(Constants.INTENT_ACTION_GRANT_USB)) {
+                if(Constants.INTENT_ACTION_GRANT_USB.equals(intent.getAction())) {
                     Boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
                     connect(granted);
                 }
@@ -313,7 +313,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         try {
             String msg;
             byte[] data;
-            if (hexEnabled) {
+            if(hexEnabled) {
                 StringBuilder sb = new StringBuilder();
                 TextUtil.toHexString(sb, TextUtil.fromHexString(str));
                 TextUtil.toHexString(sb, newline.getBytes());
@@ -355,7 +355,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     }
 
     void status(String str) {
-        SpannableStringBuilder spn = new SpannableStringBuilder(str+'\n');
+        SpannableStringBuilder spn = new SpannableStringBuilder(str + '\n');
         spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorStatusText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         receiveText.append(spn);
     }

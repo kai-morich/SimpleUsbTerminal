@@ -20,7 +20,7 @@ public class SerialSocket implements SerialInputOutputManager.Listener {
 
     private final BroadcastReceiver disconnectBroadcastReceiver;
 
-    private Context context;
+    private final Context context;
     private SerialListener listener;
     private UsbDeviceConnection connection;
     private UsbSerialPort serialPort;
