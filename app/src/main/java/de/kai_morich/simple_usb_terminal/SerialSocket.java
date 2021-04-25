@@ -50,7 +50,7 @@ public class SerialSocket implements SerialInputOutputManager.Listener {
         serialPort.setDTR(true); // for arduino, ...
         serialPort.setRTS(true);
         ioManager = new SerialInputOutputManager(serialPort, this);
-        Executors.newSingleThreadExecutor().submit(ioManager);
+        ioManager.start();
     }
 
     void disconnect() {
