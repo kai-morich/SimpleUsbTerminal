@@ -1,9 +1,9 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 29
+    compileSdkVersion 30
     defaultConfig {
-        targetSdkVersion 29
+        targetSdkVersion 30
         minSdkVersion 18
         vectorDrawables.useSupportLibrary true
 
@@ -24,7 +24,7 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.mik3y:usb-serial-for-android:3.3.3' // maven jitpack
+    implementation 'com.github.mik3y:usb-serial-for-android:3.4.0' // maven jitpack
     //implementation('com.github.mik3y:usb-serial-for-android:3.0.0beta') { changing = true } // maven local
 
     implementation 'androidx.appcompat:appcompat:1.2.0'
