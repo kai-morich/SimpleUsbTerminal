@@ -15,6 +15,7 @@ class CustomProber {
     static UsbSerialProber getCustomProber() {
         ProbeTable customTable = new ProbeTable();
         customTable.addProduct(0x16d0, 0x087e, CdcAcmSerialDriver.class); // e.g. Digispark CDC
+        customTable.addProduct(0x04e2, 0x1410, CdcAcmSerialDriver.class); // Exar (MaxLinear) xr21v1410
         return new UsbSerialProber(customTable);
     }
 
