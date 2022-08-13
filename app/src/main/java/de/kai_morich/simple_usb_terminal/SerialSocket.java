@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDeviceConnection;
 
 import com.hoho.android.usbserial.driver.UsbSerialPort;
@@ -44,10 +45,48 @@ public class SerialSocket implements SerialInputOutputManager.Listener {
     String getName() { return serialPort.getDriver().getClass().getSimpleName().replace("SerialDriver",""); }
 
     void connect(SerialListener listener) throws IOException {
+        final int XR_SET_REG = 0x40;
+        final int XR_REQ = 0x00;
+
+        // index is 2 byte; LSB -> register, MSB -> block (shifted 8)
+        final int XR_BLOCK_UART = 0x00;
+        final int XR_BLOCK_UART_MANAGER = 0x04 << 8;
+        final int XR_BLOCK_I2C_EEPROM = 0x65 << 8;
+        final int XR_BLOCK_UART_CUSTOM = 0x66 << 8;
+
+        final int XR_REG_FIFO_ENABLE = 0x10;
+        final int XR_REG_UART_ENABLE = 0x03;
+
+        // buffer will always be null, length 0
+
+        // following is the sequence of control transfers sniffed from ExarUSB_android_app_ver1C.apk
+
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x00, XR_BLOCK_UART_MANAGER | XR_REG_FIFO_ENABLE, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x00, XR_REG_UART_ENABLE, null, 0, 5000);
+
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0xA0, 0x04, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x01, 0x05, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x00, 0x06, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x6d, 0x07, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x0b, 0x08, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x6a, 0x09, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x0b, 0x0a, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x08, 0x0b, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x00, 0x0c, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x0b, 0x1a, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x00, 0x12, null, 0, 5000);
+
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x00, 0x03 | XR_BLOCK_UART_CUSTOM, null, 0, 5000);
+
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x01, 0x18 | XR_BLOCK_UART_MANAGER, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x01, 0x1c | XR_BLOCK_UART_MANAGER, null, 0, 5000);
+
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x01, XR_BLOCK_UART_MANAGER | XR_REG_FIFO_ENABLE, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x03, XR_REG_UART_ENABLE, null, 0, 5000);
+        this.connection.controlTransfer(XR_SET_REG, XR_REQ, 0x03, XR_BLOCK_UART_MANAGER | XR_REG_FIFO_ENABLE, null, 0, 5000);
+
         this.listener = listener;
         context.registerReceiver(disconnectBroadcastReceiver, new IntentFilter(Constants.INTENT_ACTION_DISCONNECT));
-        serialPort.setDTR(true); // for arduino, ...
-        serialPort.setRTS(true);
         ioManager = new SerialInputOutputManager(serialPort, this);
         ioManager.start();
     }
