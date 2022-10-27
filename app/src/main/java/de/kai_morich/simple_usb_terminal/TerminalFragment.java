@@ -43,6 +43,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.EnumSet;
 
 public class TerminalFragment extends Fragment implements ServiceConnection, SerialListener {
@@ -336,24 +337,32 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         }
     }
 
-    private void receive(byte[] data) {
-        if(hexEnabled) {
-            receiveText.append(TextUtil.toHexString(data) + '\n');
-        } else {
-            String msg = new String(data);
-            if(newline.equals(TextUtil.newline_crlf) && msg.length() > 0) {
-                // don't show CR as ^M if directly before LF
-                msg = msg.replace(TextUtil.newline_crlf, TextUtil.newline_lf);
-                // special handling if CR and LF come in separate fragments
-                if (pendingNewline && msg.charAt(0) == '\n') {
-                    Editable edt = receiveText.getEditableText();
-                    if (edt != null && edt.length() > 1)
-                        edt.replace(edt.length() - 2, edt.length(), "");
+    private void receive(ArrayDeque<byte[]> datas) {
+        SpannableStringBuilder spn = new SpannableStringBuilder();
+        for (byte[] data : datas) {
+            if (hexEnabled) {
+                spn.append(TextUtil.toHexString(data)).append('\n');
+            } else {
+                String msg = new String(data);
+                if (newline.equals(TextUtil.newline_crlf) && msg.length() > 0) {
+                    // don't show CR as ^M if directly before LF
+                    msg = msg.replace(TextUtil.newline_crlf, TextUtil.newline_lf);
+                    // special handling if CR and LF come in separate fragments
+                    if (pendingNewline && msg.charAt(0) == '\n') {
+                        if(spn.length() >= 2) {
+                            spn.delete(spn.length() - 2, spn.length());
+                        } else {
+                            Editable edt = receiveText.getEditableText();
+                            if (edt != null && edt.length() >= 2)
+                                edt.delete(edt.length() - 2, edt.length());
+                        }
+                    }
+                    pendingNewline = msg.charAt(msg.length() - 1) == '\r';
                 }
-                pendingNewline = msg.charAt(msg.length() - 1) == '\r';
+                spn.append(TextUtil.toCaretString(msg, newline.length() != 0));
             }
-            receiveText.append(TextUtil.toCaretString(msg, newline.length() != 0));
         }
+        receiveText.append(spn);
     }
 
     void status(String str) {
@@ -381,7 +390,13 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
 
     @Override
     public void onSerialRead(byte[] data) {
-        receive(data);
+        ArrayDeque<byte[]> datas = new ArrayDeque<>();
+        datas.add(data);
+        receive(datas);
+    }
+
+    public void onSerialRead(ArrayDeque<byte[]> datas) {
+        receive(datas);
     }
 
     @Override
