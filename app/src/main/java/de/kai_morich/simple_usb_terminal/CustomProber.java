@@ -1,6 +1,6 @@
 package de.kai_morich.simple_usb_terminal;
 
-import com.hoho.android.usbserial.driver.CdcAcmSerialDriver;
+import com.hoho.android.usbserial.driver.FtdiSerialDriver;
 import com.hoho.android.usbserial.driver.ProbeTable;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
@@ -14,7 +14,7 @@ class CustomProber {
 
     static UsbSerialProber getCustomProber() {
         ProbeTable customTable = new ProbeTable();
-        customTable.addProduct(0x16d0, 0x087e, CdcAcmSerialDriver.class); // e.g. Digispark CDC
+        customTable.addProduct(0x1234, 0xabcd, FtdiSerialDriver.class); // e.g. device with custom VID+PID
         return new UsbSerialProber(customTable);
     }
 
