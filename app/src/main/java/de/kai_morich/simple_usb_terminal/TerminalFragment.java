@@ -290,7 +290,11 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         connected = Connected.Pending;
         try {
             usbSerialPort.open(usbConnection);
-            usbSerialPort.setParameters(baudRate, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+            try {
+                usbSerialPort.setParameters(baudRate, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+            } catch (UnsupportedOperationException e) {
+                status("Setting serial parameters failed: " + e.getMessage());
+            }
             SerialSocket socket = new SerialSocket(getActivity().getApplicationContext(), usbConnection, usbSerialPort);
             service.connect(socket);
             // usb connect is not asynchronous. connect-success and connect-error are returned immediately from socket.connect
