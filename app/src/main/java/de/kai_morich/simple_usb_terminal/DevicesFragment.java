@@ -6,10 +6,6 @@ import android.content.DialogInterface;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
-
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.ListFragment;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -19,6 +15,10 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.ListFragment;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
@@ -57,12 +57,12 @@ public class DevicesFragment extends ListFragment {
                     view = getActivity().getLayoutInflater().inflate(R.layout.device_list_item, parent, false);
                 TextView text1 = view.findViewById(R.id.text1);
                 TextView text2 = view.findViewById(R.id.text2);
-                if(item.driver == null)
+                if (item.driver == null)
                     text1.setText("<no driver>");
-                else if(item.driver.getPorts().size() == 1)
-                    text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver",""));
+                else if (item.driver.getPorts().size() == 1)
+                    text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver", ""));
                 else
-                    text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver","")+", Port "+item.port);
+                    text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver", "") + ", Port " + item.port);
                 text2.setText(String.format(Locale.US, "Vendor %04X, Product %04X", item.device.getVendorId(), item.device.getProductId()));
                 return view;
             }
@@ -94,10 +94,10 @@ public class DevicesFragment extends ListFragment {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if(id == R.id.refresh) {
+        if (id == R.id.refresh) {
             refresh();
             return true;
-        } else if (id ==R.id.baud_rate) {
+        } else if (id == R.id.baud_rate) {
             final String[] baudRates = getResources().getStringArray(R.array.baud_rates);
             int pos = java.util.Arrays.asList(baudRates).indexOf(String.valueOf(baudRate));
             AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
@@ -120,13 +120,13 @@ public class DevicesFragment extends ListFragment {
         UsbSerialProber usbDefaultProber = UsbSerialProber.getDefaultProber();
         UsbSerialProber usbCustomProber = CustomProber.getCustomProber();
         listItems.clear();
-        for(UsbDevice device : usbManager.getDeviceList().values()) {
+        for (UsbDevice device : usbManager.getDeviceList().values()) {
             UsbSerialDriver driver = usbDefaultProber.probeDevice(device);
-            if(driver == null) {
+            if (driver == null) {
                 driver = usbCustomProber.probeDevice(device);
             }
-            if(driver != null) {
-                for(int port = 0; port < driver.getPorts().size(); port++)
+            if (driver != null) {
+                for (int port = 0; port < driver.getPorts().size(); port++)
                     listItems.add(new ListItem(device, port, driver));
             } else {
                 listItems.add(new ListItem(device, 0, null));
@@ -137,8 +137,8 @@ public class DevicesFragment extends ListFragment {
 
     @Override
     public void onListItemClick(@NonNull ListView l, @NonNull View v, int position, long id) {
-        ListItem item = listItems.get(position-1);
-        if(item.driver == null) {
+        ListItem item = listItems.get(position - 1);
+        if (item.driver == null) {
             Toast.makeText(getActivity(), "no driver", Toast.LENGTH_SHORT).show();
         } else {
             Bundle args = new Bundle();
