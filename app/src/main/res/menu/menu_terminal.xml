@@ -21,6 +21,11 @@
         android:checkable="true"
         app:showAsAction="never" />
     <item
+        android:id="@+id/backgroundNotification"
+        android:title="Notification if App in background"
+        android:checkable="true"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/sendBreak"
         android:title="Send BREAK"
         app:showAsAction="never" />

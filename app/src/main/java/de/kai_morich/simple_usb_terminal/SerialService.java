@@ -104,6 +104,7 @@ public class SerialService extends Service implements SerialListener {
     public void attach(SerialListener listener) {
         if(Looper.getMainLooper().getThread() != Thread.currentThread())
             throw new IllegalArgumentException("not in main thread");
+        initNotification();
         cancelNotification();
         // use synchronized() to prevent new items in queue2
         // new items will not be added to queue1 because mainLooper.post and attach() run in main thread
@@ -139,14 +140,18 @@ public class SerialService extends Service implements SerialListener {
         listener = null;
     }
 
-    private void createNotification() {
+    private void initNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel nc = new NotificationChannel(Constants.NOTIFICATION_CHANNEL, "Background service", NotificationManager.IMPORTANCE_LOW);
             nc.setShowBadge(false);
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             nm.createNotificationChannel(nc);
         }
+    }
+
+    private void createNotification() {
         Intent disconnectIntent = new Intent()
+                .setPackage(getPackageName())
                 .setAction(Constants.INTENT_ACTION_DISCONNECT);
         Intent restartIntent = new Intent()
                 .setClassName(this, Constants.INTENT_CLASS_MAIN_ACTIVITY)
