@@ -14,6 +14,7 @@ import android.os.IBinder;
 import android.os.Looper;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
@@ -147,6 +148,13 @@ public class SerialService extends Service implements SerialListener {
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             nm.createNotificationChannel(nc);
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    public boolean areNotificationsEnabled() {
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationChannel nc = nm.getNotificationChannel(Constants.NOTIFICATION_CHANNEL);
+        return nm.areNotificationsEnabled() && nc != null && nc.getImportance() > NotificationManager.IMPORTANCE_NONE;
     }
 
     private void createNotification() {

@@ -3,7 +3,6 @@ package de.kai_morich.simple_usb_terminal;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -11,7 +10,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
@@ -200,8 +198,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         menu.findItem(R.id.hex).setChecked(hexEnabled);
         menu.findItem(R.id.controlLines).setChecked(controlLinesEnabled);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
-            menu.findItem(R.id.backgroundNotification).setChecked(nm.areNotificationsEnabled());
+            menu.findItem(R.id.backgroundNotification).setChecked(service != null && service.areNotificationsEnabled());
         } else {
             menu.findItem(R.id.backgroundNotification).setChecked(true);
             menu.findItem(R.id.backgroundNotification).setEnabled(false);
@@ -244,15 +241,10 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             return true;
         } else if (id == R.id.backgroundNotification) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationManager nm = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
-                if (!nm.areNotificationsEnabled()) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 0);
-                    } else {
-                        showNotificationSettings(true);
-                    }
+                if (!service.areNotificationsEnabled() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 0);
                 } else {
-                    showNotificationSettings(false);
+                    showNotificationSettings();
                 }
             }
             return true;
@@ -410,25 +402,19 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
      * starting with Android 14, notifications are not shown in notification bar by default when App is in background
      */
 
-    private void showNotificationSettings(boolean enable) {
+    private void showNotificationSettings() {
         Intent intent = new Intent();
         intent.setAction("android.settings.APP_NOTIFICATION_SETTINGS");
         intent.putExtra("android.provider.extra.APP_PACKAGE", getActivity().getPackageName());
         startActivity(intent);
-        String msg;
-        if (enable) msg = "You have to enable Notifications for this App, including \'Background service\' notification";
-        else        msg = "You have to disable Notifications for this App";
-        Toast.makeText(getActivity(), msg, Toast.LENGTH_LONG).show();
     }
 
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if(Arrays.equals(permissions, new String[]{Manifest.permission.POST_NOTIFICATIONS})) {
-            if(!granted)
-                showNotificationSettings(true);
-        }
+        if(Arrays.equals(permissions, new String[]{Manifest.permission.POST_NOTIFICATIONS}) &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !service.areNotificationsEnabled())
+            showNotificationSettings();
     }
 
     /*
