@@ -6,7 +6,7 @@ android {
     compileSdkVersion 34
     defaultConfig {
         targetSdkVersion 34
-        minSdkVersion 18
+        minSdkVersion 19
         vectorDrawables.useSupportLibrary true
 
         applicationId "de.kai_morich.simple_usb_terminal"
@@ -27,9 +27,9 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.mik3y:usb-serial-for-android:3.7.1' // maven jitpack
+    implementation 'com.github.mik3y:usb-serial-for-android:3.7.2' // maven jitpack
     //implementation('com.github.mik3y:usb-serial-for-android:3.5.0beta') { changing = true } // maven local
 
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'com.google.android.material:material:1.12.0'
 }
