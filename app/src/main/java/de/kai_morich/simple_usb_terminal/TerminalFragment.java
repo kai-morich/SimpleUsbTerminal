@@ -495,12 +495,12 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
                 return;
             try {
                 EnumSet<UsbSerialPort.ControlLine> controlLines = usbSerialPort.getControlLines();
-                rtsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RTS));
-                ctsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CTS));
-                dtrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DTR));
-                dsrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DSR));
-                cdBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CD));
-                riBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RI));
+                if(rtsBtn.isChecked() != controlLines.contains(UsbSerialPort.ControlLine.RTS)) rtsBtn.setChecked(!rtsBtn.isChecked());
+                if(ctsBtn.isChecked() != controlLines.contains(UsbSerialPort.ControlLine.CTS)) ctsBtn.setChecked(!ctsBtn.isChecked());
+                if(dtrBtn.isChecked() != controlLines.contains(UsbSerialPort.ControlLine.DTR)) dtrBtn.setChecked(!dtrBtn.isChecked());
+                if(dsrBtn.isChecked() != controlLines.contains(UsbSerialPort.ControlLine.DSR)) dsrBtn.setChecked(!dsrBtn.isChecked());
+                if(cdBtn.isChecked()  != controlLines.contains(UsbSerialPort.ControlLine.CD))   cdBtn.setChecked(!cdBtn.isChecked());
+                if(riBtn.isChecked()  != controlLines.contains(UsbSerialPort.ControlLine.RI))   riBtn.setChecked(!riBtn.isChecked());
                 mainLooper.postDelayed(runnable, refreshInterval);
             } catch (IOException e) {
                 status("getControlLines() failed: " + e.getMessage() + " -> stopped control line refresh");
