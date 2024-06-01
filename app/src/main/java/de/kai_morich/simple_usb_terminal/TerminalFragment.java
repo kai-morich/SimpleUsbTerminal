@@ -29,6 +29,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -53,6 +54,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
 
     private enum Connected { False, Pending, True }
 
+    private final Handler mainLooper;
     private final BroadcastReceiver broadcastReceiver;
     private int deviceId, portNum, baudRate;
     private UsbSerialPort usbSerialPort;
@@ -60,6 +62,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
 
     private TextView receiveText;
     private TextView sendText;
+    private ImageButton sendBtn;
     private ControlLines controlLines;
     private TextUtil.HexWatcher hexWatcher;
 
@@ -71,6 +74,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
     private String newline = TextUtil.newline_crlf;
 
     public TerminalFragment() {
+        mainLooper = new Handler(Looper.getMainLooper());
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -178,6 +182,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         receiveText.setMovementMethod(ScrollingMovementMethod.getInstance());
 
         sendText = view.findViewById(R.id.send_text);
+        sendBtn = view.findViewById(R.id.send_btn);
         hexWatcher = new TextUtil.HexWatcher(sendText);
         hexWatcher.enable(hexEnabled);
         sendText.addTextChangedListener(hexWatcher);
@@ -332,6 +337,7 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         connected = Connected.False;
         controlLines.stop();
         service.disconnect();
+        enableSendBtn(true);
         usbSerialPort = null;
     }
 
@@ -340,28 +346,51 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
             Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
             return;
         }
+        String msg;
+        byte[] data;
+        if(hexEnabled) {
+            StringBuilder sb = new StringBuilder();
+            TextUtil.toHexString(sb, TextUtil.fromHexString(str));
+            TextUtil.toHexString(sb, newline.getBytes());
+            msg = sb.toString();
+            data = TextUtil.fromHexString(msg);
+        } else {
+            msg = str;
+            data = (str + newline).getBytes();
+        }
         try {
-            String msg;
-            byte[] data;
-            if(hexEnabled) {
-                StringBuilder sb = new StringBuilder();
-                TextUtil.toHexString(sb, TextUtil.fromHexString(str));
-                TextUtil.toHexString(sb, newline.getBytes());
-                msg = sb.toString();
-                data = TextUtil.fromHexString(msg);
-            } else {
-                msg = str;
-                data = (str + newline).getBytes();
-            }
             SpannableStringBuilder spn = new SpannableStringBuilder(msg + '\n');
             spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             receiveText.append(spn);
             service.write(data);
-        } catch (SerialTimeoutException e) {
-            status("write timeout: " + e.getMessage());
+        } catch (SerialTimeoutException e) { // e.g. writing large data at low baud rate
+            enableSendBtn(false);
+            mainLooper.post(() -> sendAgain(data, e.bytesTransferred));
         } catch (Exception e) {
             onSerialIoError(e);
         }
+    }
+
+    private void sendAgain(byte[] data0, int offset) {
+        if (connected != Connected.True) {
+            return;
+        }
+        byte[] data;
+        if (offset == 0) {
+            data = data0;
+        } else {
+            data = new byte[data0.length - offset];
+            System.arraycopy(data0, offset, data, 0, data.length);
+        }
+        try {
+            service.write(data);
+        } catch (SerialTimeoutException e) {
+            mainLooper.post(() -> sendAgain(data, e.bytesTransferred));
+            return;
+        } catch (Exception e) {
+            onSerialIoError(e);
+        }
+        enableSendBtn(true);
     }
 
     private void receive(ArrayDeque<byte[]> datas) {
@@ -396,6 +425,11 @@ public class TerminalFragment extends Fragment implements ServiceConnection, Ser
         SpannableStringBuilder spn = new SpannableStringBuilder(str + '\n');
         spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorStatusText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         receiveText.append(spn);
+    }
+
+    void enableSendBtn(boolean enable) {
+        sendBtn.setEnabled(enable);
+        sendBtn.setImageAlpha(enable ? 255 : 64);
     }
 
     /*

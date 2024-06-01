@@ -27,8 +27,8 @@ android {
 }
 
 dependencies {
-    implementation 'com.github.mik3y:usb-serial-for-android:3.7.2' // maven jitpack
-    //implementation('com.github.mik3y:usb-serial-for-android:3.5.0beta') { changing = true } // maven local
+    implementation 'com.github.mik3y:usb-serial-for-android:3.7.3' // maven jitpack
+    //implementation('com.github.mik3y:usb-serial-for-android:3.7.3beta') { changing = true } // maven local
 
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.12.0'

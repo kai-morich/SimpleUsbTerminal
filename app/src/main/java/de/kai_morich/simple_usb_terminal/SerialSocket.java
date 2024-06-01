@@ -18,7 +18,7 @@ import java.security.InvalidParameterException;
 
 public class SerialSocket implements SerialInputOutputManager.Listener {
 
-    private static final int WRITE_WAIT_MILLIS = 2000; // 0 blocked infinitely on unprogrammed arduino
+    private static final int WRITE_WAIT_MILLIS = 200; // 0 blocked infinitely on unprogrammed arduino
     private final static String TAG = SerialSocket.class.getSimpleName();
 
     private final BroadcastReceiver disconnectBroadcastReceiver;
